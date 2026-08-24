@@ -11,8 +11,8 @@
 
 **Tech Stack:** `CognoDB` • `openCypher` • `Neo4j Python Driver` • `FastAPI` • `Next.js (App Router)` • `TypeScript` • `Groq LLaMA 3.3` • `Tailwind CSS` • `pandas` • `yfinance`
 
-🌐 **Live Demo:** [https://correlatex.vercel.app](https://correlatex.vercel.app) *(or your deployed Vercel link)*  
-Backend API: [https://correlatex-api.onrender.com](https://correlatex-api.onrender.com)
+🌐 **Live Demo:** [https://correlatex.vercel.app](https://correlatex.vercel.app) *(Deploying on Vercel)*  
+Backend API: [https://correlatex.onrender.com](https://correlatex.onrender.com) (Live)
 
 ---
 

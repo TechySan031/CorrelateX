@@ -147,6 +147,27 @@ def _execute_query(fn, *args, **kwargs):
 
 # ── Endpoints ─────────────────────────────────────────────────────────
 
+@app.get("/", tags=["System"])
+async def root():
+    """
+    Root endpoint providing API metadata and quick links.
+    """
+    return {
+        "name": "CorrelateX — Stock Market Correlation Graph Engine",
+        "status": "online",
+        "docs": "/docs",
+        "health": "/health",
+        "endpoints": {
+            "stocks": "/stocks",
+            "correlations": "/stocks/{ticker}/correlations",
+            "network": "/stocks/{ticker}/network?hops=2&min_strength=0.5",
+            "path": "/path?from_ticker=XOM&to_ticker=COP",
+            "clusters": "/clusters?min_strength=0.5",
+            "ai_summary": "/stocks/{ticker}/ai-summary",
+        },
+    }
+
+
 @app.get("/health", response_model=HealthResponse, tags=["System"])
 async def health_check():
     """

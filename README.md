@@ -1,4 +1,4 @@
-# CorrelateX — Stock Market Correlation Graph Engine
+# CorrelateX : Stock Market Correlation Graph Engine
 
 **A graph-native financial intelligence platform modeling equity co-movements as a multi-hop graph to discover hidden systemic risks, contagion paths, and triangle cliques.**
 

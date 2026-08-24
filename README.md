@@ -16,9 +16,20 @@ Backend API: [https://correlatex-api.onrender.com](https://correlatex-api.onrend
 
 ---
 
-## 🎥 Video Demonstration
-<!-- TODO: Record a 60-second screen walkthrough of CorrelateX and place the file at docs/demo.mp4 -->
-🎥 **[Watch the 60-Second Demo Walkthrough](docs/demo.mp4)** *(Place your recorded video file at `docs/demo.mp4`)*
+## Table of Contents
+1. [What is CorrelateX?](#1-what-is-correlatex)
+2. [Why a Graph Database?](#2-why-a-graph-database)
+3. [Data Model](#3-data-model)
+4. [Architecture Overview](#4-architecture-overview)
+5. [AI Narrative Synthesis Flow](#5-ai-narrative-synthesis-flow)
+6. [Key Cypher Queries Explained](#6-key-cypher-queries-explained)
+7. [Setup & Installation Instructions](#7-setup--installation-instructions)
+8. [Testing the API](#8-testing-the-api)
+9. [API Reference](#9-api-reference)
+10. [Application UI Screenshots](#10-application-ui-screenshots)
+11. [Design Decisions & Tradeoffs](#11-design-decisions--tradeoffs)
+12. [Known Limitations & Future Work](#12-known-limitations--future-work)
+13. [License](#license)
 
 ---
 
@@ -100,70 +111,91 @@ ORDER BY hops, s.ticker;
 
 ## 3. Data Model
 
-CorrelateX uses an intuitive graph data model where stocks are vertices and correlations above the minimum threshold ($|r| \ge 0.5$) are undirected weighted edges.
+CorrelateX models equities as discrete nodes and Pearson correlation coefficients exceeding threshold $|r| \ge 0.50$ as weighted relationships.
 
+```mermaid
+erDiagram
+    STOCK {
+        string ticker PK "Stock ticker symbol (e.g. AAPL)"
+        string sector "Sector classification (e.g. Technology)"
+    }
+    STOCK }|..|{ STOCK : "CORRELATED_WITH {strength: float}"
 ```
-       ┌────────────────────────┐
-       │      (:Stock)          │
-       ├────────────────────────┤
-       │ ticker: "AAPL"         │
-       │ sector: "Technology"   │
-       └───────────┬────────────┘
-                   │
-                   │ [:CORRELATED_WITH {strength: 0.7842}]
-                   │ (Undirected Pearson correlation)
-                   │
-       ┌───────────┴────────────┐
-       │      (:Stock)          │
-       ├────────────────────────┤
-       │ ticker: "MSFT"         │
-       │ sector: "Technology"   │
-       └────────────────────────┘
-```
-
-- **Nodes (`Stock`):** `ticker` (string, unique), `sector` (string).
-- **Relationships (`CORRELATED_WITH`):** `strength` (float, $-1.0 \le r \le 1.0$).
+> *Note on Relationship Directionality:* While `erDiagram` displays binary associations, `CORRELATED_WITH` represents a bidirectional (undirected) mathematical Pearson correlation ($r_{AB} = r_{BA}$). Canonical edge uniqueness is enforced at ingestion by sorting node pairs alphabetically before openCypher `MERGE`.
 
 ---
 
 ## 4. Architecture Overview
 
-```
- ┌────────────────────────────────────────────────────────┐
- │                    Seed Pipeline                       │
- │  fetch_data.py  ──>  compute_correlations.py  ──>      │
- │    (yfinance)             (pandas pct_change)          │
- └───────────────────────────────┬────────────────────────┘
-                                 │ load_graph.py (Bolt Driver)
-                                 ▼
-                   ┌───────────────────────────┐
-                   │    CognoDB Graph DB       │
-                   │ (Stock Nodes & Corr Edges)│
-                   └─────────────┬─────────────┘
-                                 │
-                 FastAPI Backend │ (Neo4j Python Driver)
-                                 ▼
- ┌────────────────────────────────────────────────────────┐
- │                 backend/app/main.py                    │
- │   - /health                      - /path               │
- │   - /stocks                      - /clusters           │
- │   - /stocks/{ticker}/network     - /ai-summary         │
- └───────────────────────────────┬────────────────────────┘
-                                 │ JSON REST API
-                                 ▼
- ┌────────────────────────────────────────────────────────┐
- │                 Next.js Frontend (App Router)          │
- │   - Force-Directed 2D Graph (react-force-graph-2d)     │
- │   - Shortest Path Visualizer (Hop-by-hop chains)       │
- │   - Triangle Clique Explorer (Concentration Risk)      │
- │   - AI Narrative Panel (Groq LLaMA 3.3 70B)            │
- │   - Dark & Light Mode Theme Toggle                     │
- └────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph SeedPipeline ["1. Data Ingestion & Seed Pipeline"]
+        A[fetch_data.py<br/>yfinance historical prices] --> B[compute_correlations.py<br/>pandas pct_change & Pearson matrix]
+        B --> C[load_graph.py<br/>Idempotent Bolt Loader]
+    end
+
+    subgraph Database ["2. Graph Database Layer"]
+        D[(CognoDB Cloud<br/>openCypher over Bolt 5.0+)]
+    end
+
+    subgraph BackendAPI ["3. FastAPI Backend (Port 8000)"]
+        E[FastAPI Application<br/>Neo4j Driver Connection Pool]
+        E1["/health"]
+        E2["/stocks & /stocks/{ticker}/correlations"]
+        E3["/stocks/{ticker}/network (1-4 hops)"]
+        E4["/path (shortestPath)"]
+        E5["/clusters (Triangle Cliques)"]
+        E6["/stocks/{ticker}/ai-summary (Groq LLaMA 3.3)"]
+    end
+
+    subgraph FrontendApp ["4. Next.js Frontend (Port 3000)"]
+        F1["/ (Network Explorer & Filter Chips)"]
+        F2["/stocks/[ticker] (Force-Directed 2D Graph)"]
+        F3["/path-finder (Shortest Path Traversal)"]
+        F4["/clusters (Concentration Risk Analytics)"]
+    end
+
+    C -->|Bolt Protocol| D
+    D <-->|Parameterized Cypher Queries| E
+    E --> E1 & E2 & E3 & E4 & E5 & E6
+    E1 & E2 & E3 & E4 & E5 & E6 <-->|JSON REST API & CORS| FrontendApp
+
+    style D fill:#008cc1,stroke:#005c8a,stroke-width:2px,color:#fff
+    style E fill:#009688,stroke:#00695c,stroke-width:2px,color:#fff
 ```
 
 ---
 
-## 5. Key Cypher Queries Explained
+## 5. AI Narrative Synthesis Flow
+
+To guarantee accuracy and eliminate LLM hallucination of financial market data, CorrelateX follows a strict **"Deterministic Facts First, AI Narration Second"** architecture:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Client / Browser
+    participant FE as Next.js Frontend
+    participant BE as FastAPI Backend
+    participant DB as CognoDB (openCypher)
+    participant AI as Groq (LLaMA 3.3 70B)
+
+    User->>FE: Click "Explore Graph" (/stocks/JPM)
+    FE->>BE: GET /stocks/JPM/ai-summary
+    activate BE
+    Note over BE,DB: Step 1: Query deterministic ground truth
+    BE->>DB: MATCH path = (start:Stock {ticker: 'JPM'})-[:CORRELATED_WITH*1..2]-(s) ...
+    DB-->>BE: Returns structured facts (sectors, 1-hop & 2-hop tickers, edge weights)
+    Note over BE,AI: Step 2: Inject structured facts into prompt
+    BE->>AI: ChatCompletion(system="Use ONLY provided facts", prompt=facts)
+    AI-->>BE: Narrated financial synthesis
+    BE-->>FE: JSON { ticker: "JPM", summary: "..." }
+    deactivate BE
+    FE->>User: Render AI narration card with "AI-Generated" badge
+```
+
+---
+
+## 6. Key Cypher Queries Explained
 
 ### 1. Fetch All Stocks
 ```cypher
@@ -237,7 +269,7 @@ ORDER BY (r1.strength + r2.strength + r3.strength) / 3.0 DESC
 
 ---
 
-## 6. Setup & Installation Instructions
+## 7. Setup & Installation Instructions
 
 ### Step 1: Create Free CognoDB Instance
 1. Go to [https://console.cognodb.com](https://console.cognodb.com) and create a free account (no credit card required).
@@ -288,7 +320,33 @@ Open `http://localhost:3000` in your browser.
 
 ---
 
-## 7. API Reference
+## 8. Testing the API
+
+You can test all endpoints directly using `curl` or any API client against `http://localhost:8000`:
+
+```bash
+# 1. Health & Database connectivity check
+curl -s http://localhost:8000/health
+
+# 2. List all stocks in the graph
+curl -s http://localhost:8000/stocks
+
+# 3. Get multi-hop network around JPM (2 hops, r >= 0.50)
+curl -s "http://localhost:8000/stocks/JPM/network?hops=2&min_strength=0.5"
+
+# 4. Compute shortest correlation path between XOM and COP
+curl -s "http://localhost:8000/path?from_ticker=XOM&to_ticker=COP"
+
+# 5. Detect triangle cliques at correlation threshold r >= 0.55
+curl -s "http://localhost:8000/clusters?min_strength=0.55"
+
+# 6. Generate AI narrative summary for JPM
+curl -s http://localhost:8000/stocks/JPM/ai-summary
+```
+
+---
+
+## 9. API Reference
 
 All backend endpoints wrap database and AI operations with error isolation and automatic socket reconnection, returning clean 503s on connection loss rather than raw tracebacks.
 
@@ -304,7 +362,7 @@ All backend endpoints wrap database and AI operations with error isolation and a
 
 ---
 
-## 8. Application UI Screenshots
+## 10. Application UI Screenshots
 
 ### 1. Network Explorer (Home)
 ![Home Network Explorer](docs/screenshots/home.png)
@@ -324,7 +382,7 @@ All backend endpoints wrap database and AI operations with error isolation and a
 
 ---
 
-## 9. Design Decisions & Tradeoffs
+## 11. Design Decisions & Tradeoffs
 
 1. **Deterministic AI Facts vs. Open Prompting:**
    - *Decision:* The graph query executes first and produces structured facts (center stock, connected sectors, hop counts, strongest edges). Those facts are injected into the LLaMA 3.3 prompt with strict instructions: *"Use ONLY the facts given below, do not invent any relationship not listed."*
@@ -345,6 +403,28 @@ All backend endpoints wrap database and AI operations with error isolation and a
 5. **Theme Adaptive Canvas Rendering:**
    - *Decision:* Graph node, link, and label colors dynamically adapt to Dark & Light modes with DOM mutation observers.
    - *Rationale:* Guarantees high visual contrast and readability across any user device theme.
+
+---
+
+## 12. Known Limitations & Future Work
+
+While CorrelateX delivers a robust graph exploration platform, the current implementation has several known architectural boundaries suitable for future expansion:
+
+1. **Static vs. Rolling Historical Window:**
+   - *Current:* Pearson correlation is computed over a fixed 1-year historical dataset at seed time.
+   - *Future:* Implement a streaming pipeline (e.g. Apache Kafka or WebSocket live market feeds) to update correlation edges over a rolling 30-day or 90-day exponentially weighted window.
+
+2. **Fixed Threshold Filtering vs. Dynamic Volatility Adjustment:**
+   - *Current:* Correlation filtering uses static numerical thresholds ($|r| \ge 0.50$).
+   - *Future:* Implement regime-aware thresholding that scales dynamically based on market volatility (VIX) to filter out spurious co-movements during macro market selloffs.
+
+3. **3-Node Triangle Cliques vs. Arbitrary $k$-Cliques:**
+   - *Current:* Cluster detection uses exact openCypher pattern matching for 3-node complete subgraphs (`a-b-c-a`).
+   - *Future:* Implement graph algorithm extensions (such as the Bron-Kerbosch maximal clique algorithm or Louvain community detection) to discover arbitrary $N$-node dense subgraphs.
+
+4. **Authentication & Rate Limiting:**
+   - *Current:* The FastAPI backend is open and intended for single-tenant evaluation and demonstration.
+   - *Future:* Add JWT bearer authentication, Redis-backed rate limiting per IP/API-key, and user-saved portfolio watchlists.
 
 ---
 

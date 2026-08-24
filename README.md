@@ -1,17 +1,56 @@
 # CorrelateX — Stock Market Correlation Graph Engine
 
-CorrelateX is a full-stack financial network intelligence platform that models stock market co-movements as a high-performance graph. By computing Pearson correlations over real historical equity returns, storing them in **CognoDB** (an openCypher-native graph database over Bolt), and providing interactive multi-hop graph visualizations and AI-narrated graph synthesis, CorrelateX helps investors and risk analysts discover hidden systemic linkages, contagion paths, and concentration cliques.
+**A graph-native financial intelligence platform modeling equity co-movements as a multi-hop graph to discover hidden systemic risks, contagion paths, and triangle cliques.**
+
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![Next.js 14](https://img.shields.io/badge/Next.js-14.2-black.svg?logo=next.js&logoColor=white)](https://nextjs.org/)
+[![CognoDB](https://img.shields.io/badge/Database-CognoDB%20(openCypher)-008CC1.svg)](https://cognodb.com)
+[![Groq LLaMA 3.3](https://img.shields.io/badge/AI-Groq%20LLaMA%203.3%2070B-F55036.svg)](https://groq.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+**Tech Stack:** `CognoDB` • `openCypher` • `Neo4j Python Driver` • `FastAPI` • `Next.js (App Router)` • `TypeScript` • `Groq LLaMA 3.3` • `Tailwind CSS` • `pandas` • `yfinance`
+
+🌐 **Live Demo:** [https://correlatex.vercel.app](https://correlatex.vercel.app) *(or your deployed Vercel link)*  
+Backend API: [https://correlatex-api.onrender.com](https://correlatex-api.onrender.com)
+
+---
+
+## 🎥 Video Demonstration
+<!-- TODO: Record a 60-second screen walkthrough of CorrelateX and place the file at docs/demo.mp4 -->
+🎥 **[Watch the 60-Second Demo Walkthrough](docs/demo.mp4)** *(Place your recorded video file at `docs/demo.mp4`)*
+
+---
+
+## ⚡ Quick Start (TL;DR)
+
+```bash
+# 1. Clone repo & navigate
+git clone https://github.com/TechySan031/CorrelateX.git && cd CorrelateX
+
+# 2. Configure environment (add CognoDB & Groq credentials to backend/.env)
+cp backend/.env.example backend/.env && cp frontend/.env.example frontend/.env.local
+
+# 3. Seed CognoDB graph database with real market data
+cd backend && pip install -r requirements.txt && python run_seed.py
+
+# 4. Start FastAPI backend (http://localhost:8000)
+uvicorn app.main:app --reload --port 8000
+
+# 5. Start Next.js frontend (http://localhost:3000)
+cd ../frontend && npm install && npm run dev
+```
 
 ---
 
 ## 1. What is CorrelateX?
 
 Modern financial markets are deeply interconnected. When analyzing risk, looking at individual stock metrics or simple correlation heatmaps fails to capture higher-order relationships such as:
-- **Indirect Contagion:** If stock A correlates with B, and B correlates with C, how does shock in A propagate to C?
+- **Indirect Contagion:** If stock A correlates with B, and B correlates with C, how does a shock in A propagate to C?
 - **Hidden Portfolio Concentration:** An investor holding 3 stocks across seemingly distinct sectors might actually hold a tightly-knit triangle clique where all 3 equities move synchronously.
 - **Shortest Transmission Paths:** What is the shortest chain of price dependency connecting a mega-cap tech company to an energy major?
 
-CorrelateX calculates daily percentage return correlations using `yfinance` and `pandas`, loads the network into CognoDB as weighted undirected relationships, and exposes an exploratory UI with force-directed graphs, dynamic hop exploration, shortest-path calculation, and AI narrative generation via **Groq (LLaMA 3.3 70B)**.
+CorrelateX calculates daily percentage return correlations using `yfinance` and `pandas`, loads the network into CognoDB as weighted undirected relationships, and exposes an exploratory UI with force-directed graphs, dynamic hop exploration, shortest-path calculation, dark/light mode, and AI narrative generation via **Groq (LLaMA 3.3 70B)**.
 
 ---
 
@@ -118,6 +157,7 @@ CorrelateX uses an intuitive graph data model where stocks are vertices and corr
  │   - Shortest Path Visualizer (Hop-by-hop chains)       │
  │   - Triangle Clique Explorer (Concentration Risk)      │
  │   - AI Narrative Panel (Groq LLaMA 3.3 70B)            │
+ │   - Dark & Light Mode Theme Toggle                     │
  └────────────────────────────────────────────────────────┘
 ```
 
@@ -200,16 +240,16 @@ ORDER BY (r1.strength + r2.strength + r3.strength) / 3.0 DESC
 ## 6. Setup & Installation Instructions
 
 ### Step 1: Create Free CognoDB Instance
-1. Go to [https://console.cognodb.com](https://console.cognodb.com) (or your CognoDB provider) and create a free account (no credit card required).
-2. Create a new database instance (e.g. Free Tier `c0`).
-3. Note your **Bolt URI**, **Username** (`neo4j`), and **Password**.
+1. Go to [https://console.cognodb.com](https://console.cognodb.com) and create a free account (no credit card required).
+2. Create a new database instance (Free Tier `c0`).
+3. Note your **Bolt URI**, **Username** (`cognodb`), and **Password**.
 
 ### Step 2: Configure Environment Variables
 
 **Root `.env` / `backend/.env`:**
 ```bash
 COGNODB_URI=bolt+s://your-instance.cognodb.example:7687
-COGNODB_USER=neo4j
+COGNODB_USER=cognodb
 COGNODB_PASSWORD=your_database_password
 GROQ_API_KEY=gsk_your_groq_api_key_here
 ```
@@ -250,7 +290,7 @@ Open `http://localhost:3000` in your browser.
 
 ## 7. API Reference
 
-All backend endpoints wrap database and AI operations with error isolation, returning clean 503s on connection loss rather than raw tracebacks.
+All backend endpoints wrap database and AI operations with error isolation and automatic socket reconnection, returning clean 503s on connection loss rather than raw tracebacks.
 
 | Method | Endpoint | Query / Path Params | Description |
 |---|---|---|---|
@@ -264,22 +304,22 @@ All backend endpoints wrap database and AI operations with error isolation, retu
 
 ---
 
-## 8. Application UI Preview
+## 8. Application UI Screenshots
 
 ### 1. Network Explorer (Home)
-![Home Network Explorer](/docs/screenshots/home.png)
-*Searchable equity cards color-coded by sector with live DB connection indicator.*
+![Home Network Explorer](docs/screenshots/home.png)
+*Searchable equity cards color-coded by sector with live DB connection indicator and Dark/Light theme support.*
 
 ### 2. Interactive Force Graph & AI Narration (`/stocks/[ticker]`)
-![Stock Detail Graph](/docs/screenshots/stock_detail.png)
+![Stock Detail Graph](docs/screenshots/stock_detail.png)
 *Dynamic force-directed graph with debounced hop depth (1–4) and correlation sliders.*
 
 ### 3. Shortest Path Visualizer (`/path-finder`)
-![Path Finder](/docs/screenshots/path_finder.png)
+![Path Finder](docs/screenshots/path_finder.png)
 *Linear step-by-step path rendering with exact correlation weights.*
 
 ### 4. Triangle Cliques (`/clusters`)
-![Triangle Clusters](/docs/screenshots/clusters.png)
+![Triangle Clusters](docs/screenshots/clusters.png)
 *Detection of 3-way mutual correlation triangles identifying systemic risk.*
 
 ---
@@ -301,6 +341,10 @@ All backend endpoints wrap database and AI operations with error isolation, retu
 4. **Debounced Sliders in Frontend:**
    - *Decision:* Sliders debounce API calls by 300ms.
    - *Rationale:* Prevents flooding the graph database with intermediate queries while users drag sliders across depth and correlation ranges.
+
+5. **Theme Adaptive Canvas Rendering:**
+   - *Decision:* Graph node, link, and label colors dynamically adapt to Dark & Light modes with DOM mutation observers.
+   - *Rationale:* Guarantees high visual contrast and readability across any user device theme.
 
 ---
 
